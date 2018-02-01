@@ -18,22 +18,20 @@ namespace AwsIotMqttWebSocketSigner {
 
 		private static readonly UTF8Encoding m_encoding = new UTF8Encoding( false );
 
-		private static string AsHex( this byte[] bytes ) {
-
-			StringBuilder sb = new StringBuilder( bytes.Length * 2 );
+		private static StringBuilder AppendHex( this StringBuilder sb, byte[] bytes ) {
 			for( int i = 0; i < bytes.Length; i++ ) {
 				sb.AppendFormat( "{0:x2}", bytes[ i ] );
 			}
-			return sb.ToString();
+			return sb;
 		}
 
-		private static string GetSha256( string data ) {
-
+		private static StringBuilder AppendSha256Hex( this StringBuilder sb, string data ) {
+			byte[] bytes = m_encoding.GetBytes( data );
 			using( SHA256 algo = SHA256.Create() ) {
-				byte[] bytes = m_encoding.GetBytes( data );
 				byte[] hash = algo.ComputeHash( bytes );
-				return hash.AsHex();
+				sb.AppendHex( hash );
 			}
+			return sb;
 		}
 
 		private static byte[] GetHmac( string key, string data ) {
@@ -61,10 +59,10 @@ namespace AwsIotMqttWebSocketSigner {
 		}
 
 		public static string GetSignedUri(
-					string host,
-					string region,
-					ImmutableCredentials credentials
-				) {
+				string host,
+				string region,
+				ImmutableCredentials credentials
+			) {
 
 			return GetSignedUri(
 				host: host,
@@ -92,22 +90,52 @@ namespace AwsIotMqttWebSocketSigner {
 			const string algorithm = "AWS4-HMAC-SHA256";
 
 			string credentialScope = date + "/" + region + "/" + service + "/" + "aws4_request";
-			string canonicalQuerystring = "X-Amz-Algorithm=" + algorithm;
-			canonicalQuerystring += "&X-Amz-Credential=" + WebUtility.UrlEncode( credentials.AccessKey + "/" + credentialScope );
-			canonicalQuerystring += "&X-Amz-Date=" + datetime;
-			canonicalQuerystring += "&X-Amz-SignedHeaders=host";
 
-			string canonicalHeaders = "host:" + host + "\n";
-			string payloadHash = GetSha256( "" );
-			string canonicalRequest = method + "\n" + uri + "\n" + canonicalQuerystring + "\n" + canonicalHeaders + "\nhost\n" + payloadHash;
+			StringBuilder canonicalQuerystring = new StringBuilder( 512 )
+				.Append( "X-Amz-Algorithm=" )
+				.Append( algorithm )
+				.Append( "&X-Amz-Credential=" )
+				.Append( WebUtility.UrlEncode( credentials.AccessKey ) )
+				.Append( "%2F" )
+				.Append( WebUtility.UrlEncode( credentialScope ) )
+				.Append( "&X-Amz-Date=" )
+				.Append( datetime )
+				.Append( "&X-Amz-SignedHeaders=host" );
 
-			string stringToSign = algorithm + "\n" + datetime + "\n" + credentialScope + "\n" + GetSha256( canonicalRequest );
+			string canonicalRequest = new StringBuilder( 350 )
+				.Append( method )
+				.Append( '\n' )
+				.Append( uri )
+				.Append( '\n' )
+				.Append( canonicalQuerystring )
+				.Append( "\nhost:" )
+				.Append( host )
+				.Append( "\n\nhost\n" )
+				.AppendSha256Hex( String.Empty )
+				.ToString();
+
+			string stringToSign = new StringBuilder( 200 )
+				.Append( algorithm )
+				.Append( '\n' )
+				.Append( datetime )
+				.Append( '\n' )
+				.Append( credentialScope )
+				.Append( '\n' )
+				.AppendSha256Hex( canonicalRequest )
+				.ToString();
+
 			byte[] signingKey = GetSignatureKey( credentials.SecretKey, date, region, service );
-			string signature = GetHmac( signingKey, stringToSign ).AsHex();
+			byte[] signatureBytes = GetHmac( signingKey, stringToSign );
 
-			canonicalQuerystring += "&X-Amz-Signature=" + signature;
+			canonicalQuerystring
+				.Append( "&X-Amz-Signature=" )
+				.AppendHex( signatureBytes );
+
 			if( !String.IsNullOrEmpty( credentials.Token ) ) {
-				canonicalQuerystring += "&X-Amz-Security-Token=" + WebUtility.UrlEncode( credentials.Token );
+
+				canonicalQuerystring
+					.Append( "&X-Amz-Security-Token=" )
+					.Append( WebUtility.UrlEncode( credentials.Token ) );
 			}
 
 			string requestUrl = protocol + "://" + host + uri + "?" + canonicalQuerystring;
