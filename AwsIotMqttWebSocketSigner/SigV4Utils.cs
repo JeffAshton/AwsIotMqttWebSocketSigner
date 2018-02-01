@@ -91,7 +91,7 @@ namespace AwsIotMqttWebSocketSigner {
 
 			string credentialScope = date + "/" + region + "/" + service + "/" + "aws4_request";
 
-			StringBuilder canonicalQuerystring = new StringBuilder( 512 )
+			StringBuilder canonicalQuerystring = new StringBuilder( 800 )
 				.Append( "X-Amz-Algorithm=" )
 				.Append( algorithm )
 				.Append( "&X-Amz-Credential=" )
