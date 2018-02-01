@@ -19,6 +19,7 @@ namespace AwsIotMqttWebSocketSigner {
 		private static readonly UTF8Encoding m_encoding = new UTF8Encoding( false );
 
 		private static StringBuilder AppendHex( this StringBuilder sb, byte[] bytes ) {
+
 			for( int i = 0; i < bytes.Length; i++ ) {
 				sb.AppendFormat( "{0:x2}", bytes[ i ] );
 			}
@@ -26,6 +27,7 @@ namespace AwsIotMqttWebSocketSigner {
 		}
 
 		private static StringBuilder AppendSha256Hex( this StringBuilder sb, string data ) {
+
 			byte[] bytes = m_encoding.GetBytes( data );
 			using( SHA256 algo = SHA256.Create() ) {
 				byte[] hash = algo.ComputeHash( bytes );
