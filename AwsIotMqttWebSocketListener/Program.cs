@@ -62,28 +62,7 @@ namespace AwsIotMqttWebSocketListener {
 
 			using( CancellationTokenSource cancellation = new CancellationTokenSource() ) {
 
-				await session.PublishAsync(
-						"test",
-						Encoding.UTF8.GetBytes( "hello world!!!" ),
-						qos: QualityOfService.QoS0,
-						cancellationToken: CancellationToken.None
-					);
-
-				await session.PublishAsync(
-						"test",
-						Encoding.UTF8.GetBytes( "jurassic world!!!" ),
-						qos: QualityOfService.QoS0,
-						cancellationToken: CancellationToken.None
-					);
-
-				await session.PublishAsync(
-						"test",
-						Encoding.UTF8.GetBytes( "booo!!!" ),
-						qos: QualityOfService.QoS0,
-						cancellationToken: CancellationToken.None
-					);
-
-				Task task = session.RunAsync( cancellation.Token );
+				Task task = session.RunAsync( CancellationToken.None );
 				try {
 
 					for(; ; ) {

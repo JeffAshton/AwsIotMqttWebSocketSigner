@@ -15,7 +15,6 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 		private readonly IMqttClientLogger m_logger;
 		private readonly ClientWebSocket m_socket;
 		private readonly ArraySegment<byte> m_receiveBuffer;
-		private readonly ArraySegment<byte> m_sendBuffer;
 		private readonly Action<MqttMessageEventArgs> m_messageHandler;
 
 		private readonly TimeSpan m_disconnectTimeout = TimeSpan.FromSeconds( 10 );
@@ -30,14 +29,12 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 				IMqttClientLogger logger,
 				ClientWebSocket socket,
 				ArraySegment<byte> receiveBuffer,
-				ArraySegment<byte> sendBuffer,
 				Action<MqttMessageEventArgs> messageHandler
 			) {
 
 			m_logger = logger;
 			m_socket = socket;
 			m_receiveBuffer = receiveBuffer;
-			m_sendBuffer = sendBuffer;
 			m_messageHandler = messageHandler;
 
 			m_packetHandler = new PacketHandler( this );
@@ -169,7 +166,7 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 
 			try {
 				await m_socket
-					.SendPacketAsync( packet, m_sendBuffer, cancellationToken )
+					.SendPacketAsync( packet, cancellationToken )
 					.ConfigureAwait( continueOnCapturedContext: false );
 
 			} finally {

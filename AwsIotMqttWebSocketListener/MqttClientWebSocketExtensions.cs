@@ -100,23 +100,22 @@ namespace AwsIotMqttWebSocketListener {
 		public static async Task SendPacketAsync(
 				this ClientWebSocket socket,
 				MqttPacket packet,
-				ArraySegment<byte> buffer,
 				CancellationToken cancellationToken
 			) {
 
-			using( MemoryStream ms = new MemoryStream( buffer.Array, buffer.Offset, buffer.Count, writable: true ) ) {
+			using( MemoryStream ms = new MemoryStream() ) {
 				packet.WriteTo( ms );
 
 				ArraySegment<byte> packetSegment = new ArraySegment<byte>(
-						buffer.Array,
-						buffer.Offset,
-						(int)ms.Position - buffer.Offset
+						ms.GetBuffer(),
+						0,
+						(int)ms.Position
 					);
 
 				await socket.SendAsync(
 						packetSegment,
 						WebSocketMessageType.Binary,
-						endOfMessage: false,
+						endOfMessage: true,
 						cancellationToken: cancellationToken
 					);
 			}

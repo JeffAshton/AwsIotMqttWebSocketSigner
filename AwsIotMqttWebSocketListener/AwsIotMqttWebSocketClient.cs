@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Net.WebSockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.Runtime;
@@ -51,7 +52,7 @@ namespace AwsIotMqttWebSocketListener {
 					.ConnectAsync( new Uri( socketUrl ), cancellationToken )
 					.ConfigureAwait( continueOnCapturedContext: false );
 
-				ArraySegment<byte> buffer = new ArraySegment<byte>(
+				ArraySegment<byte> receiveBuffer = new ArraySegment<byte>(
 					new byte[ 1024 ]
 				);
 
@@ -67,11 +68,11 @@ namespace AwsIotMqttWebSocketListener {
 					);
 
 				await socket
-					.SendPacketAsync( connect, buffer, cancellationToken )
+					.SendPacketAsync( connect, cancellationToken )
 					.ConfigureAwait( continueOnCapturedContext: false );
 
 				MqttPacket packet = await socket
-					.ReceiveMqttPacketAsync( buffer, cancellationToken )
+					.ReceiveMqttPacketAsync( receiveBuffer, cancellationToken )
 					.ConfigureAwait( continueOnCapturedContext: false );
 
 				if( packet == null ) {
@@ -99,10 +100,7 @@ namespace AwsIotMqttWebSocketListener {
 				IMqttSession session = new MqttWebSocketSession(
 						m_logger,
 						socket,
-						receiveBuffer: buffer,
-						sendBuffer: new ArraySegment<byte>(
-							new byte[ 1024 ]
-						),
+						receiveBuffer: receiveBuffer,
 						messageHandler: m_messageHandler
 					);
 
