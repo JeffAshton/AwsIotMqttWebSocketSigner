@@ -23,21 +23,43 @@ namespace AwsIotMqttWebSocketListener {
 				return null;
 			}
 
-			if( fixedHeader.RemainingLength < buffer.Count ) {
+			PacketType packetType = fixedHeader.PacketType;
 
-				ArraySegment<byte> packetBuffer = new ArraySegment<byte>( buffer.Array, 0, fixedHeader.RemainingLength );
-				await socket
-					.ReceiveRemainingPacketAsync( fixedHeader.PacketType, packetBuffer, cancellationToken )
-					.ConfigureAwait( continueOnCapturedContext: false );
+			using( MemoryStream ms = new MemoryStream( fixedHeader.RemainingLength ) ) {
 
-				using( MemoryStream ms = packetBuffer.AsReadableMemoryStream() ) {
+				int remaining = fixedHeader.RemainingLength;
+				while( remaining > 0 ) {
 
-					MqttPacket packet = MqttPacketReader.ReadRemainingPacket( fixedHeader, ms );
-					return packet;
+					int requestedBytes = ( remaining < buffer.Count )
+						? remaining
+						: buffer.Count;
+
+					ArraySegment<byte> packetBuffer = new ArraySegment<byte>( buffer.Array, buffer.Offset, requestedBytes );
+
+					WebSocketReceiveResult result = await socket
+						.ReceiveAsync( packetBuffer, cancellationToken )
+						.ConfigureAwait( continueOnCapturedContext: false );
+
+					// end of stream
+					int actualBytes = result.Count;
+					if( actualBytes < requestedBytes ) {
+
+						throw new PacketFormatException(
+								packetType,
+								$"Incomplete packet. Only received { actualBytes } of { requestedBytes } bytes."
+							);
+					}
+
+					ms.Write( packetBuffer.Array, packetBuffer.Offset, actualBytes );
+
+					remaining -= packetBuffer.Count;
 				}
-			}
 
-			throw new NotImplementedException( "Packet too big for now" );
+				ms.Position = 0;
+
+				MqttPacket packet = MqttPacketReader.ReadRemainingPacket( fixedHeader, ms );
+				return packet;
+			}
 		}
 
 		private static async Task<MqttFixedHeader> ReceiveMqttFixedHeaderAsync(
@@ -72,40 +94,6 @@ namespace AwsIotMqttWebSocketListener {
 
 			using( MemoryStream ms = fixedHeader.AsReadableMemoryStream() ) {
 				return MqttPacketReader.ReadFixedHeader( ms );
-			}
-		}
-
-		private static async Task ReceiveRemainingPacketAsync(
-				this ClientWebSocket socket,
-				PacketType packetType,
-				ArraySegment<byte> packet,
-				CancellationToken cancellationToken
-			) {
-
-			int count = 0;
-
-			while( count < packet.Count ) {
-
-				ArraySegment<byte> segment = new ArraySegment<byte>(
-						packet.Array,
-						offset: count,
-						count: packet.Count - count
-					);
-
-				WebSocketReceiveResult result = await socket
-					.ReceiveAsync( segment, cancellationToken )
-					.ConfigureAwait( continueOnCapturedContext: false );
-
-				// end of stream
-				if( result.Count == 0 ) {
-
-					throw new PacketFormatException(
-							packetType,
-							$"Incomplete packet. Only received { count } of { packet.Count } bytes."
-						);
-				}
-
-				count += result.Count;
 			}
 		}
 
