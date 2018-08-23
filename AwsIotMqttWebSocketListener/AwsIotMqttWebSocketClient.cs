@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Net.WebSockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.Runtime;
@@ -11,40 +10,29 @@ using D2L.MQTT.Packets;
 
 namespace AwsIotMqttWebSocketListener {
 
-	internal sealed class AwsIotMqttWebSocketClient {
+	internal static class AwsIotMqttWebSocketClient {
 
-		private readonly IMqttClientLogger m_logger = NullMqttClientLogger.Instance;
-		private readonly string m_endpointAddress;
-		private readonly string m_region;
-		private readonly AWSCredentials m_credentails;
-		private readonly Action<MqttMessageEventArgs> m_messageHandler;
-
-		public AwsIotMqttWebSocketClient(
-				string endpointAddress,
+		public static async Task<ConnectResponse> ConnectAsync(
+				string endpoint,
 				string region,
 				AWSCredentials credentials,
-				Action<MqttMessageEventArgs> messageHandler
+				Action<MqttMessageEventArgs> messageHandler,
+				IMqttClientLogger logger,
+				CancellationToken cancellationToken
 			) {
-
-			m_endpointAddress = endpointAddress;
-			m_region = region;
-			m_credentails = credentials;
-			m_messageHandler = messageHandler;
-		}
-
-		public async Task<ConnectResponse> ConnectAsync( CancellationToken cancellationToken ) {
 
 			ClientWebSocket socket = new ClientWebSocket();
 			try {
 				socket.Options.AddSubProtocol( "mqtt" );
+				socket.Options.KeepAliveInterval = TimeSpan.FromSeconds( 30 );
 
-				ImmutableCredentials resolvedCredentials = await m_credentails
+				ImmutableCredentials resolvedCredentials = await credentials
 					.GetCredentialsAsync()
 					.ConfigureAwait( continueOnCapturedContext: false );
 
 				string socketUrl = SigV4Utils.GetSignedUri(
-						host: m_endpointAddress,
-						region: m_region,
+						host: endpoint,
+						region: region,
 						credentials: resolvedCredentials
 					);
 
@@ -61,7 +49,7 @@ namespace AwsIotMqttWebSocketListener {
 						protocolName: "MQTT",
 						clientId: "test",
 						cleanSession: true,
-						keepAlive: 300,
+						keepAlive: 35,
 						userName: null,
 						password: null,
 						will: null
@@ -98,10 +86,10 @@ namespace AwsIotMqttWebSocketListener {
 				}
 
 				IMqttSession session = new MqttWebSocketSession(
-						m_logger,
+						logger,
 						socket,
 						receiveBuffer: receiveBuffer,
-						messageHandler: m_messageHandler
+						messageHandler: messageHandler
 					);
 
 				return new ConnectResponse(

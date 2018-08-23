@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amazon.Runtime;
+using AwsIotMqttWebSocketListener.Logging;
 using AwsIotMqttWebSocketListener.Sessions;
 using D2L.MQTT.Packets;
 
@@ -11,10 +13,14 @@ namespace AwsIotMqttWebSocketListener {
 	internal static class Program {
 
 		internal static void Main( string[] args ) {
+
+			Stopwatch watch = Stopwatch.StartNew();
+
 			try {
 				MainAsync( args ).GetAwaiter().GetResult();
 			} catch( Exception err ) {
 				Console.Error.WriteLine( err.ToString() );
+				Console.Out.WriteLine( watch.ToString() );
 			}
 		}
 
@@ -26,17 +32,19 @@ namespace AwsIotMqttWebSocketListener {
 
 			Console.WriteLine( "Enter \"DISCONNECT\" to exit" );
 
-			AwsIotMqttWebSocketClient client = new AwsIotMqttWebSocketClient(
-					endpointAddress,
-					region,
-					credentails,
-					( message ) => {
-						string str = Encoding.UTF8.GetString( message.Message );
-						Console.WriteLine( "MESSAGE: {0}", str );
-					}
-				);
+			Action<MqttMessageEventArgs> messageHandler = ( message ) => {
+				string str = Encoding.UTF8.GetString( message.Message );
+				Console.WriteLine( "MESSAGE: {0}", str );
+			};
 
-			using( ConnectResponse response = await client.ConnectAsync( CancellationToken.None ) ) {
+			using( ConnectResponse response = await AwsIotMqttWebSocketClient.ConnectAsync(
+					endpoint: endpointAddress,
+					region: region,
+					credentials: credentails,
+					messageHandler: messageHandler,
+					logger: NullMqttClientLogger.Instance,
+					cancellationToken: CancellationToken.None
+				) ) {
 
 				if( response.ReturnCode == ConnectReturnCode.ConnectionAccepted ) {
 

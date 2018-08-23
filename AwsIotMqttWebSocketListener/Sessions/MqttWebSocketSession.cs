@@ -25,6 +25,8 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 		private ushort m_packetIdentifierCounter = 1;
 		private readonly object m_packetIdentifierCounterLock = new object();
 
+		private readonly TimeSpan m_keepAlive = TimeSpan.FromSeconds( 30 );
+
 		public MqttWebSocketSession(
 				IMqttClientLogger logger,
 				ClientWebSocket socket,
@@ -45,28 +47,6 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 			m_socket.Dispose();
 		}
 
-		private void SendDisconnectPacket() {
-
-			try {
-				if( m_socket.State != WebSocketState.Open ) {
-					return;
-				}
-
-				DisconnectPacket disconnect = new DisconnectPacket();
-
-				using( CancellationTokenSource cancellation = new CancellationTokenSource( TimeSpan.FromSeconds( 10 ) ) ) {
-
-					SendPacketAsync( disconnect, cancellation.Token )
-						.ConfigureAwait( continueOnCapturedContext: true )
-						.GetAwaiter()
-						.GetResult();
-				}
-
-			} catch( Exception err ) {
-				m_logger.Error( "Failed to send disconnect packket", err );
-			}
-		}
-
 		bool IMqttSession.IsConnected {
 			get {
 				bool connected = m_socket.State == WebSocketState.Open;
@@ -79,23 +59,37 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 			) {
 
 			try {
+
+				Task<MqttPacket> receiveTask = m_socket.ReceiveMqttPacketAsync( m_receiveBuffer, cancellationToken );
+
 				while( !cancellationToken.IsCancellationRequested ) {
 
-					MqttPacket packet = await m_socket
-						.ReceiveMqttPacketAsync( m_receiveBuffer, cancellationToken )
+					Task keepAliveTask = Task.Delay( m_keepAlive );
+
+					Task task = await Task
+						.WhenAny( receiveTask, keepAliveTask )
 						.ConfigureAwait( continueOnCapturedContext: false );
 
-					if( packet == null ) {
-						return;
-					}
+					if( Object.ReferenceEquals( task, receiveTask ) ) {
 
-					if( packet.PacketType == PacketType.Disconnect ) {
-						return;
-					}
+						MqttPacket packet = receiveTask.Result;
+						if( packet.PacketType == PacketType.Disconnect ) {
+							return;
+						}
 
-					await packet
-						.VisitAsync( m_packetHandler, cancellationToken )
-						.ConfigureAwait( continueOnCapturedContext: false );
+						receiveTask = m_socket.ReceiveMqttPacketAsync( m_receiveBuffer, cancellationToken );
+
+						await packet
+							.VisitAsync( m_packetHandler, cancellationToken )
+							.ConfigureAwait( continueOnCapturedContext: false );
+
+					} else {
+
+						Console.WriteLine( "PINGREQ" );
+
+						await SendPacketAsync( new PingreqPacket(), cancellationToken )
+							.ConfigureAwait( continueOnCapturedContext: false );
+					}
 				}
 
 			} catch( OperationCanceledException err ) when(

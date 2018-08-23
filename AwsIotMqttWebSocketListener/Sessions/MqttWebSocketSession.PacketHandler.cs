@@ -107,6 +107,7 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 
 			// PINGRSP
 			Task IAsyncMqttPacketVisitor.VisitAsync( PingrespPacket packet, CancellationToken cancellationToken ) {
+				Console.WriteLine( "PINGRSP" );
 				return Task.FromResult( true );
 			}
 

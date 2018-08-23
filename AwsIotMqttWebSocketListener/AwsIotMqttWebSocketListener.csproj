@@ -51,8 +51,6 @@
   <ItemGroup>
     <Compile Include="AwsIotMqttWebSocketClient.cs" />
     <Compile Include="ConnectResponse.cs" />
-    <Compile Include="DisconnectEventArgs.cs" />
-    <Compile Include="DisconnectReason.cs" />
     <Compile Include="Logging\IMqttClientLogger.cs" />
     <Compile Include="Logging\NullMqttClientLogger.cs" />
     <Compile Include="MqttClientWebSocketExtensions.cs" />
@@ -64,7 +62,6 @@
     <Compile Include="Sessions\MqttWebSocketSession.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Util\ThreadSafeEventHandler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">
