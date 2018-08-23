@@ -73,6 +73,10 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 					if( Object.ReferenceEquals( task, receiveTask ) ) {
 
 						MqttPacket packet = receiveTask.Result;
+						if( packet == null ) {
+							return;
+						}
+
 						if( packet.PacketType == PacketType.Disconnect ) {
 							return;
 						}
