@@ -14,13 +14,10 @@ namespace AwsIotMqttWebSocketListener {
 
 		internal static void Main( string[] args ) {
 
-			Stopwatch watch = Stopwatch.StartNew();
-
 			try {
 				MainAsync( args ).GetAwaiter().GetResult();
 			} catch( Exception err ) {
 				Console.Error.WriteLine( err.ToString() );
-				Console.Out.WriteLine( watch.ToString() );
 			}
 		}
 
@@ -70,7 +67,17 @@ namespace AwsIotMqttWebSocketListener {
 
 			using( CancellationTokenSource cancellation = new CancellationTokenSource() ) {
 
-				Task task = session.RunAsync( CancellationToken.None );
+				Stopwatch watch = Stopwatch.StartNew();
+
+				Task task = session
+					.RunAsync( CancellationToken.None )
+					.ContinueWith( 
+						t => {
+							Console.Error.WriteLine( t.Exception.ToString() );
+							Console.Out.WriteLine( watch.Elapsed.ToString() );
+						},
+						TaskContinuationOptions.OnlyOnFaulted
+					);
 				try {
 
 					for(; ; ) {
@@ -127,6 +134,7 @@ namespace AwsIotMqttWebSocketListener {
 
 				} finally {
 					cancellation.Cancel();
+					task.Wait();
 				}
 			}
 		}
