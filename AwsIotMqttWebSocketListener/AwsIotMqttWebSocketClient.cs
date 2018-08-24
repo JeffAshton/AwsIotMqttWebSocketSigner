@@ -21,6 +21,13 @@ namespace AwsIotMqttWebSocketListener {
 				CancellationToken cancellationToken
 			) {
 
+			System.Net.ServicePoint sp = System.Net.ServicePointManager
+				.FindServicePoint( new Uri(
+					$"https://{ endpoint }"
+				) );
+
+			sp.MaxIdleTime = System.Threading.Timeout.Infinite;
+
 			ClientWebSocket socket = new ClientWebSocket();
 			try {
 				socket.Options.AddSubProtocol( "mqtt" );

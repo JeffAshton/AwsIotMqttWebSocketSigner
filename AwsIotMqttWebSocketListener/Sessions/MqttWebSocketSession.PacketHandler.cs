@@ -87,6 +87,7 @@ namespace AwsIotMqttWebSocketListener.Sessions {
 
 			// SUBACK
 			Task IAsyncMqttPacketVisitor.VisitAsync( SubackPacket packet, CancellationToken cancellationToken ) {
+				Console.WriteLine( "SUBACK: {0}", packet.PacketIdentifier );
 				return Task.FromResult( true );
 			}
 
